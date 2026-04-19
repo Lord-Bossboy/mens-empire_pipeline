@@ -73,7 +73,7 @@ def call_gemini(prompt: str) -> dict:
         "contents": [{"parts": [{"text": prompt}]}],
         "generationConfig": {
             "temperature": 0.8,
-            "maxOutputTokens": 2000,
+            "maxOutputTokens": 4500,
             "responseMimeType": "application/json",
         },
     }
@@ -89,7 +89,7 @@ def call_gemini(prompt: str) -> dict:
         if raw.startswith("json"):
             raw = raw[4:]
 
-    return json.loads(raw.strip())
+    return json.loads(raw.strip().split('```')[0].strip())
 
 
 def main():
