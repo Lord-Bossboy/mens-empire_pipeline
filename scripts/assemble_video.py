@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""scripts/assemble_video.py — FFmpeg video assembly engine"""
+"""scripts/assemble_video.py — DireWealth FFmpeg video assembly engine"""
 import argparse, glob, json, os, subprocess, sys, tempfile
 from pathlib import Path
 
@@ -38,39 +38,19 @@ def build_looped(clips,duration,w,h,workdir):
     run_ff(["-f","concat","-safe","0","-i",cf,"-t",str(duration+1),"-c","copy",out],"Concat")
     return out
 
-def gen_srt(audio,workdir):
-    srt=os.path.join(workdir,"captions.srt")
-    try:
-        from faster_whisper import WhisperModel
-        print("[WHISPER] Transcribing...")
-        model=WhisperModel("base",device="cpu",compute_type="int8")
-        segs,_=model.transcribe(audio,word_timestamps=False)
-        def ts(s):
-            h=int(s//3600);m=int((s%3600)//60);sec=s%60
-            return f"{h:02d}:{m:02d}:{sec:06.3f}".replace(".",",")
-        with open(srt,"w") as f:
-            for i,s in enumerate(segs,1):
-                f.write(f"{i}\n{ts(s.start)} --> {ts(s.end)}\n{s.text.strip()}\n\n")
-        print(f"[WHISPER] Done → {srt}"); return srt
-    except Exception as e:
-        print(f"[WHISPER] Skipped: {e}"); return None
-
-def composite(looped,audio,srt,output,channel):
-    style="FontName=Liberation Sans,FontSize=18,Bold=1,PrimaryColour=&H00FFFFFF,OutlineColour=&H00000000,BackColour=&H80000000,BorderStyle=3,Outline=2,Shadow=0,Alignment=2,MarginV=80"
+def composite(looped,audio,output,channel):
     wm=f"drawtext=text='{channel}':fontcolor=white@0.35:fontsize=16:x=20:y=20:font=Liberation Sans"
-    if srt and os.path.exists(srt):
-        sp=srt.replace("\\","/").replace(":","\\:")
-        vf=f"subtitles='{sp}':force_style='{style}',{wm}"
-    else: vf=wm
-    run_ff(["-i",looped,"-i",audio,"-vf",vf,
+    run_ff(["-i",looped,"-i",audio,"-vf",wm,
             "-c:v","libx264","-preset","fast","-crf","22",
             "-c:a","aac","-b:a","192k","-shortest",output],"Composite final video")
 
 def main():
     p=argparse.ArgumentParser()
-    p.add_argument("--input",required=True); p.add_argument("--audio",required=True)
-    p.add_argument("--clipsdir",required=True); p.add_argument("--type",choices=["short","long"],required=True)
-    p.add_argument("--output",required=True); p.add_argument("--no-captions",action="store_true")
+    p.add_argument("--input",required=True)
+    p.add_argument("--audio",required=True)
+    p.add_argument("--clipsdir",required=True)
+    p.add_argument("--type",choices=["short","long"],required=True)
+    p.add_argument("--output",required=True)
     a=p.parse_args()
     W,H=(1080,1920) if a.type=="short" else (1920,1080)
     clips=sorted(glob.glob(os.path.join(a.clipsdir,"*.mp4")))
@@ -79,8 +59,7 @@ def main():
     print(f"\n[ASSEMBLE] {a.type.upper()} | {W}x{H} | {dur:.1f}s | {len(clips)} clips")
     with tempfile.TemporaryDirectory(prefix="yt_") as wd:
         looped=build_looped(clips,dur,W,H,wd)
-        srt=None if a.no_captions else gen_srt(a.audio,wd)
-        composite(looped,a.audio,srt,a.output,"Men's Empire")
+        composite(looped,a.audio,a.output,"DireWealth")
     print(f"\n[DONE] {a.output} ({os.path.getsize(a.output)/1024/1024:.1f} MB)")
 
 if __name__=="__main__": main()
