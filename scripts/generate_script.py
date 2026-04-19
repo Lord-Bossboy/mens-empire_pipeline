@@ -80,7 +80,7 @@ def call_gemini(prompt):
         "contents": [{"parts": [{"text": prompt}]}],
         "generationConfig": {
             "temperature": 0.75,
-            "maxOutputTokens": 4500,
+            "maxOutputTokens": 12000,
             "responseMimeType": "application/json",
         },
     }
@@ -92,7 +92,16 @@ def call_gemini(prompt):
         raw = raw.split("```")[1]
         if raw.startswith("json"):
             raw = raw[4:]
-    return json.loads(raw.strip().split("```")[0].strip())
+    try:
+        return json.loads(raw.strip().split("```")[0].strip())
+    except json.JSONDecodeError:
+        # Try to salvage truncated JSON by finding last complete field
+        raw = raw.strip()
+        if not raw.endswith("}"):
+            raw = raw[:raw.rfind('"')]
+            raw = raw[:raw.rfind('"')]
+            raw += '"}'
+        return json.loads(raw)
 
 
 def main():
