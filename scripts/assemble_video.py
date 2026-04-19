@@ -57,7 +57,7 @@ def gen_srt(audio,workdir):
 
 def composite(looped,audio,srt,output,channel):
     style="FontName=Liberation Sans,FontSize=18,Bold=1,PrimaryColour=&H00FFFFFF,OutlineColour=&H00000000,BackColour=&H80000000,BorderStyle=3,Outline=2,Shadow=0,Alignment=2,MarginV=80"
-    wm=f"drawtext=text='{channel}':fontcolor=white@0.35:fontsize=16:x=20:y=20:font=Liberation Sans:bold=1"
+    wm=f"drawtext=text='{channel}':fontcolor=white@0.35:fontsize=16:x=20:y=20:font=Liberation Sans:bold="
     if srt and os.path.exists(srt):
         sp=srt.replace("\\","/").replace(":","\\:")
         vf=f"subtitles='{sp}':force_style='{style}',{wm}"
