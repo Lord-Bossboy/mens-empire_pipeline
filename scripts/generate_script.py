@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 scripts/generate_script.py
-Calls Google Gemini 2.0 Flash API to generate a full video script,
+Calls Google Gemini 2.5 Flash API to generate a full video script,
 title, description, tags, and topic. Saves result as JSON for other steps.
 
 Usage:
@@ -14,7 +14,7 @@ import argparse, json, os, sys, datetime, requests
 GEMINI_API_KEY = os.environ["GEMINI_API_KEY"]
 GEMINI_URL = (
     "https://generativelanguage.googleapis.com/v1beta/models/"
-    "gemini-2.0-flash:generateContent?key=" + GEMINI_API_KEY
+    "gemini-2.5-flash:generateContent?key=" + GEMINI_API_KEY
 )
 
 # ── Rotating topic schedule ────────────────────────────────────────────────
