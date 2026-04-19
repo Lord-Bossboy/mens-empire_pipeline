@@ -1,1 +1,100 @@
+# ============================================================
+#  Men's Empire Auto — Long Video Pipeline (Twice Weekly)
+#  File location in your repo: .github/workflows/longvideo_pipeline.yml
+#
+#  Schedule: Every Tuesday and Friday at 9:00 AM IST
+#  Output: 8-10 minute video with chapters, SEO description
+# ============================================================
 
+name: Long Video Pipeline
+
+on:
+  schedule:
+    - cron: '30 3 * * 2,5'   # 9:00 AM IST on Tuesday (2) and Friday (5)
+  workflow_dispatch:
+
+jobs:
+  generate-long-video:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60       # Long videos need more time
+
+    env:
+      GEMINI_API_KEY:  ${{ secrets.GEMINI_API_KEY }}
+      PEXELS_API_KEY:  ${{ secrets.PEXELS_API_KEY }}
+      YT_TOKEN_B64:    ${{ secrets.YT_TOKEN_B64 }}
+      YT_CLIENT_B64:   ${{ secrets.YT_CLIENT_B64 }}
+
+    steps:
+
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install FFmpeg
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y ffmpeg fonts-liberation
+
+      - name: Install Python dependencies
+        run: |
+          pip install --upgrade pip
+          pip install \
+            edge-tts \
+            requests \
+            google-auth \
+            google-auth-oauthlib \
+            google-api-python-client \
+            faster-whisper
+
+      - name: Restore YouTube OAuth token
+        run: |
+          mkdir -p /tmp/yt_auth
+          echo "$YT_TOKEN_B64"  | base64 -d > /tmp/yt_auth/youtube_token.pickle
+          echo "$YT_CLIENT_B64" | base64 -d > /tmp/yt_auth/client_secrets.json
+
+      - name: Generate long-form script with Gemini
+        run: |
+          python scripts/generate_script.py \
+            --type long \
+            --output /tmp/script_data.json
+
+      - name: Generate voiceover (long form)
+        run: |
+          python scripts/generate_voice.py \
+            --input  /tmp/script_data.json \
+            --output /tmp/voiceover.mp3 \
+            --style  long
+
+      - name: Download landscape stock footage
+        run: |
+          python scripts/fetch_footage.py \
+            --input  /tmp/script_data.json \
+            --type   long \
+            --outdir /tmp/clips
+
+      - name: Assemble long video
+        run: |
+          python scripts/assemble_video.py \
+            --input     /tmp/script_data.json \
+            --audio     /tmp/voiceover.mp3 \
+            --clipsdir  /tmp/clips \
+            --type      long \
+            --output    /tmp/final_video.mp4
+
+      - name: Upload long video to YouTube
+        run: |
+          python scripts/upload_youtube.py \
+            --video   /tmp/final_video.mp4 \
+            --meta    /tmp/script_data.json \
+            --type    long \
+            --token   /tmp/yt_auth/youtube_token.pickle \
+            --secrets /tmp/yt_auth/client_secrets.json
+
+      - name: Cleanup
+        if: always()
+        run: rm -rf /tmp/clips /tmp/final_video.mp4 /tmp/voiceover.mp3 /tmp/yt_auth
