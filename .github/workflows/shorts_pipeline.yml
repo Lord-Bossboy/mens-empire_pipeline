@@ -1,24 +1,15 @@
 # ============================================================
-#  Men's Empire Auto — Daily YouTube Shorts Pipeline
-#  File location in your repo: .github/workflows/shorts_pipeline.yml
-#
-#  What this does (fully automatic, zero human involvement):
-#    1. Picks today's content category (rotates daily)
-#    2. Calls Gemini API to write a viral 45-sec script
-#    3. Generates voiceover using Edge-TTS (Microsoft Neural voices)
-#    4. Downloads matching stock footage from Pexels
-#    5. Assembles MP4 with FFmpeg + auto-captions
-#    6. Uploads directly to YouTube as a Short
-#
-#  Schedule: Runs daily at 8:00 AM IST (2:30 AM UTC)
+#  DireWealth — Twice Daily YouTube Shorts Pipeline
+#  Runs at 8:00 AM IST and 2:00 PM IST every day
 # ============================================================
 
 name: Daily Shorts Pipeline
 
 on:
   schedule:
-    - cron: '30 2 * * *'   # 8:00 AM IST every day
-  workflow_dispatch:        # Also allows manual trigger from GitHub UI
+    - cron: '30 2 * * *'   # 8:00 AM IST
+    - cron: '30 8 * * *'   # 2:00 PM IST
+  workflow_dispatch:
 
 jobs:
   generate-and-upload:
@@ -33,24 +24,20 @@ jobs:
 
     steps:
 
-      # ── 1. Checkout your repo ──────────────────────────────
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # ── 2. Set up Python ───────────────────────────────────
       - name: Set up Python 3.11
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
           cache: 'pip'
 
-      # ── 3. Install system tools ────────────────────────────
       - name: Install FFmpeg and system deps
         run: |
           sudo apt-get update -qq
           sudo apt-get install -y ffmpeg fonts-liberation
 
-      # ── 4. Install Python packages ─────────────────────────
       - name: Install Python dependencies
         run: |
           pip install --upgrade pip
@@ -62,21 +49,18 @@ jobs:
             google-api-python-client \
             faster-whisper
 
-      # ── 5. Restore YouTube OAuth token ────────────────────
       - name: Restore YouTube OAuth token
         run: |
           mkdir -p /tmp/yt_auth
-          echo "$YT_TOKEN_B64"   | base64 -d > /tmp/yt_auth/youtube_token.pickle
-          echo "$YT_CLIENT_B64"  | base64 -d > /tmp/yt_auth/client_secrets.json
+          echo "$YT_TOKEN_B64"  | base64 -d > /tmp/yt_auth/youtube_token.pickle
+          echo "$YT_CLIENT_B64" | base64 -d > /tmp/yt_auth/client_secrets.json
 
-      # ── 6. Pick today's topic & generate script ───────────
       - name: Generate script with Gemini
         run: |
           python scripts/generate_script.py \
             --type short \
             --output /tmp/script_data.json
-        
-      # ── 7. Generate voiceover ──────────────────────────────
+
       - name: Generate voiceover with Edge-TTS
         run: |
           python scripts/generate_voice.py \
@@ -84,7 +68,6 @@ jobs:
             --output /tmp/voiceover.mp3 \
             --style  short
 
-      # ── 8. Download stock footage from Pexels ─────────────
       - name: Download Pexels stock footage
         run: |
           python scripts/fetch_footage.py \
@@ -92,17 +75,15 @@ jobs:
             --type   short \
             --outdir /tmp/clips
 
-      # ── 9. Assemble final video ────────────────────────────
       - name: Assemble video with FFmpeg
         run: |
           python scripts/assemble_video.py \
-            --input     /tmp/script_data.json \
-            --audio     /tmp/voiceover.mp3 \
-            --clipsdir  /tmp/clips \
-            --type      short \
-            --output    /tmp/final_short.mp4
+            --input    /tmp/script_data.json \
+            --audio    /tmp/voiceover.mp3 \
+            --clipsdir /tmp/clips \
+            --type     short \
+            --output   /tmp/final_short.mp4
 
-      # ── 10. Upload to YouTube ──────────────────────────────
       - name: Upload Short to YouTube
         run: |
           python scripts/upload_youtube.py \
@@ -112,7 +93,6 @@ jobs:
             --token   /tmp/yt_auth/youtube_token.pickle \
             --secrets /tmp/yt_auth/client_secrets.json
 
-      # ── 11. Cleanup ────────────────────────────────────────
       - name: Cleanup temp files
         if: always()
         run: rm -rf /tmp/clips /tmp/final_short.mp4 /tmp/voiceover.mp3 /tmp/yt_auth
