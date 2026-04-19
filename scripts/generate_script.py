@@ -1,16 +1,5 @@
 #!/usr/bin/env python3
-"""
-scripts/generate_script.py
-DireWealth — AI Script Generator
-Calls Google Gemini 2.5 Flash API to generate a full video script,
-title, description, tags, and topic. Saves result as JSON for other steps.
-
-Usage:
-  python scripts/generate_script.py --type short --output /tmp/script_data.json
-  python scripts/generate_script.py --type long  --output /tmp/script_data.json
-"""
-
-import argparse, json, os, sys, datetime, requests
+import argparse, json, os, datetime, requests
 
 GEMINI_API_KEY = os.environ["GEMINI_API_KEY"]
 GEMINI_URL = (
@@ -18,7 +7,6 @@ GEMINI_URL = (
     "gemini-2.5-flash:generateContent?key=" + GEMINI_API_KEY
 )
 
-# Channel Identity
 CHANNEL_NAME = "DireWealth"
 
 CHANNEL_PERSONALITY = (
@@ -28,11 +16,9 @@ CHANNEL_PERSONALITY = (
     "Your tone is slow, deep, authoritative, and motivating. "
     "You never use slang, hype, or filler words. "
     "Every sentence carries weight, like a billionaire giving rare advice to young men. "
-    "You speak directly to men aged 20-40 who want to level up their wealth, body, and style. "
     "You are not a hype man. You are a mentor. Calm. Powerful. Precise."
 )
 
-# Rotating topic schedule
 DAILY_TOPICS = {
     0: {"category": "fashion",  "topic": "how to dress like a wealthy powerful man on any budget"},
     1: {"category": "physique", "topic": "the disciplined workout routine of high achieving men"},
@@ -52,52 +38,44 @@ LONG_VIDEO_TOPICS = [
 
 SHORT_PROMPT = """You are the scriptwriter for DireWealth, a men's wealth and self-improvement YouTube channel.
 
-Channel Voice & Personality:
+Channel Voice:
 {personality}
 
 Write a 45-second voiceover script (90-110 words) about: {topic}
 
-Return ONLY valid JSON, no markdown, no explanation, no extra text:
+Return ONLY valid JSON, no markdown, no explanation:
 {{
-  "title": "A powerful viral title under 58 chars. No hashtags. Sounds like a wealthy mentor speaking.",
-  "script": "Full voiceover text only. No stage directions. No brackets. No sound effects. Start with one powerful statement that stops a man mid-scroll. End with: Follow DireWealth. Your future self will thank you.",
-  "description": "180-word SEO-rich description written in DireWealth voice. Include timestamps: [0:00 Opening] [0:15 The Truth] [0:40 Final Word]. End with: #DireWealth #WealthMindset #MensLifestyle #SelfImprovement #Finance",
-  "tags": "DireWealth,wealth mindset,mens lifestyle,self improvement,{category},men motivation,financial freedom,mens success",
-  "search_topic": "2-4 word Pexels footage search, e.g. luxury office man or suit businessman city",
-  "thumbnail_text": "5 words max ALL CAPS. Powerful and curiosity-driven."
+  "title": "Powerful viral title under 58 chars. No hashtags. Sounds like a wealthy mentor.",
+  "script": "Full voiceover only. No stage directions. No brackets. Start with one powerful statement that stops a man mid-scroll. End with: Follow DireWealth. Your future self will thank you.",
+  "description": "180-word SEO description in DireWealth voice. Timestamps: [0:00 Opening] [0:15 The Truth] [0:40 Final Word]. End with: #DireWealth #WealthMindset #MensLifestyle #SelfImprovement #Finance",
+  "tags": "DireWealth,wealth mindset,mens lifestyle,self improvement,{category},men motivation,financial freedom",
+  "search_topic": "2-4 word Pexels footage search e.g. luxury businessman suit city",
+  "thumbnail_text": "5 words max ALL CAPS powerful and curiosity-driven"
 }}
 
-Rules:
-- Calm, deep, authoritative tone throughout
-- No filler words, no hype, no exclamation marks
-- Every sentence must be worth the listener's time
-- Write as if a billionaire mentor is speaking directly to a young man"""
+Rules: Calm deep authoritative tone. No filler. No hype. No exclamation marks. Pure value."""
 
 LONG_PROMPT = """You are the scriptwriter for DireWealth, a men's wealth and self-improvement YouTube channel.
 
-Channel Voice & Personality:
+Channel Voice:
 {personality}
 
 Write a full 8-10 minute video script (1100-1300 words) about: {topic}
 
-Return ONLY valid JSON, no markdown, no explanation, no extra text:
+Return ONLY valid JSON, no markdown, no explanation:
 {{
-  "title": "A compelling powerful title under 58 chars. Sounds authoritative and premium.",
-  "script": "Full voiceover script 1100-1300 words. Open with a hook in the first 20 seconds that makes a man stop everything. Present 5 powerful insights with depth and clarity. Close with a strong CTA: If this gave you clarity, subscribe to DireWealth. More is coming.",
-  "description": "320-word SEO description in DireWealth voice. Include chapter timestamps: [0:00 The Opening] [1:30 Insight One] [3:00 Insight Two] [5:00 Insight Three] [6:30 Insight Four] [8:00 The Close]. End with: #DireWealth #WealthMindset #MensLifestyle #SelfImprovement #Finance #MensSuccess",
-  "tags": "DireWealth,wealth mindset,mens lifestyle,self improvement,{category},men motivation,financial freedom,mens success,mens health",
+  "title": "Compelling powerful title under 58 chars. Authoritative and premium.",
+  "script": "Full voiceover 1100-1300 words. Hook in first 20 seconds. 5 powerful insights. Close with: Subscribe to DireWealth. More is coming.",
+  "description": "320-word SEO description. Timestamps: [0:00 Opening] [1:30 Insight One] [3:00 Insight Two] [5:00 Insight Three] [6:30 Insight Four] [8:00 The Close]. End with: #DireWealth #WealthMindset #MensLifestyle #SelfImprovement #Finance",
+  "tags": "DireWealth,wealth mindset,mens lifestyle,self improvement,{category},men motivation,financial freedom,mens success",
   "search_topic": "3-5 word Pexels footage search for background visuals",
-  "thumbnail_text": "5 words max ALL CAPS. Premium and powerful."
+  "thumbnail_text": "5 words max ALL CAPS premium and powerful"
 }}
 
-Rules:
-- Calm, deep, authoritative tone — like a wealthy wolf mentoring young men
-- No filler, no hype, no weak words
-- Every insight must be specific and actionable
-- Pacing should feel deliberate and weighty"""
+Rules: Calm deep authoritative tone. Like a wealthy wolf mentoring young men. No weak words."""
 
 
-def call_gemini(prompt: str) -> dict:
+def call_gemini(prompt):
     payload = {
         "contents": [{"parts": [{"text": prompt}]}],
         "generationConfig": {
@@ -108,15 +86,12 @@ def call_gemini(prompt: str) -> dict:
     }
     resp = requests.post(GEMINI_URL, json=payload, timeout=60)
     resp.raise_for_status()
-
     data = resp.json()
     raw = data["candidates"][0]["content"]["parts"][0]["text"].strip()
-
     if raw.startswith("```"):
         raw = raw.split("```")[1]
         if raw.startswith("json"):
             raw = raw[4:]
-
     return json.loads(raw.strip().split("```")[0].strip())
 
 
@@ -136,8 +111,7 @@ def main():
             category=t["category"],
             personality=CHANNEL_PERSONALITY
         )
-        print(f"[DIREWEALTH] Generating SHORT | Category: {t['category']}")
-        print(f"[DIREWEALTH] Topic: {t['topic']}")
+        print(f"[DIREWEALTH] SHORT | {t['category']} | {t['topic']}")
     else:
         week_idx = today.isocalendar()[1] % len(LONG_VIDEO_TOPICS)
         t = LONG_VIDEO_TOPICS[week_idx]
@@ -146,11 +120,9 @@ def main():
             category=t["category"],
             personality=CHANNEL_PERSONALITY
         )
-        print(f"[DIREWEALTH] Generating LONG VIDEO | Category: {t['category']}")
-        print(f"[DIREWEALTH] Topic: {t['topic']}")
+        print(f"[DIREWEALTH] LONG | {t['category']} | {t['topic']}")
 
     result = call_gemini(prompt)
-
     result["video_type"]   = args.type
     result["category"]     = t["category"]
     result["channel"]      = CHANNEL_NAME
@@ -159,7 +131,7 @@ def main():
     with open(args.output, "w") as f:
         json.dump(result, f, indent=2)
 
-    print(f"[DIREWEALTH] Script saved → {args.output}")
+    print(f"[DIREWEALTH] Saved → {args.output}")
     print(f"[DIREWEALTH] Title: {result.get('title', 'N/A')}")
     print(f"[DIREWEALTH] Words: {len(result.get('script','').split())}")
 
